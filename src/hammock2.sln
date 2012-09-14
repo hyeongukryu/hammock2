@@ -7,7 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hammock2.Tests", "hammock2.
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{64D0E7B7-7A52-4F7D-AB9D-CF25508897F7}"
 	ProjectSection(SolutionItems) = preProject
-		..\..\README.md = ..\..\README.md
+		..\LICENSE.md = ..\LICENSE.md
+		..\README.md = ..\README.md
 	EndProjectSection
 EndProject
 Global

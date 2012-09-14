@@ -1,42 +1,41 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Diagnostics;
 using System.Dynamic;
-using System.IO;
 using System.Linq;
-using System.Net;
+using System.Net.Http;
+using System.Reflection;
 using System.Text;
-using ServiceStack.Text;
 
 namespace hammock2
 {
-    public interface JsonThing
+    public interface IJsonConverter
     {
         string DynamicToString(dynamic thing);
         IDictionary<string, object> StringToHash(string json);
+        string HashToString(IDictionary<string, object> hash);
     }
 
     public partial class Json : DynamicObject
     {
-        private static readonly JsonThing Thing;
+        protected internal static readonly IJsonConverter Converter;
 
         private readonly IDictionary<string, object> _hash = new Dictionary<string, object>();
 
         public static string Serialize(dynamic instance)
         {
-            return Thing.DynamicToString(instance);
+            return Converter.DynamicToString(instance);
         }
 
         public static dynamic Deserialize(string json)
         {
-            return new Json(Thing.StringToHash(json));
+            return new Json(Converter.StringToHash(json));
         }
 
         public Json(IEnumerable<KeyValuePair<string, object>> hash)
         {
             _hash.Clear();
-            foreach (var entry in hash)
+            foreach (var entry in hash ?? new Dictionary<string, object>())
             {
                 _hash.Add(Underscored(entry.Key), entry.Value);
             }
@@ -57,7 +56,7 @@ namespace hammock2
 
         public override string ToString()
         {
-            return JsonSerializer.SerializeToString(_hash);
+            return Converter.HashToString(_hash);
         }
 
         private bool YieldMember(string name, out object result)
@@ -67,7 +66,7 @@ namespace hammock2
                 var json = _hash[name].ToString();
                 if (json.TrimStart(' ').StartsWith("{"))
                 {
-                    var nested = JsonSerializer.DeserializeFromString<IDictionary<string, object>>(json);
+                    var nested = Converter.StringToHash(json);
                     result = new Json(nested);
                     return true;
                 }
@@ -95,28 +94,17 @@ namespace hammock2
         }
     }
 
-    public class Http : DynamicObject
+    public interface IHttpEngine
     {
+        dynamic Request(string url, string method, NameValueCollection headers, bool trace, dynamic body);
+    }
+
+    public partial class Http : DynamicObject
+    {
+        private static readonly IHttpEngine Engine;
         private UrlSegment _node;
         private readonly NameValueCollection _headers;
-        private Action<Http> _authentication;
-
-        private static readonly IDictionary<string, Action<HttpWebRequest, string>> _specialHeaders
-            = new Dictionary<string, Action<HttpWebRequest, string>>(StringComparer.OrdinalIgnoreCase)
-                  {
-                      {"Accept", (r, v) => r.Accept = v},
-                      {"Connection", (r, v) => r.Connection = v},
-                      {"Content-Length", (r, v) => r.ContentLength = Convert.ToInt64(v)},
-                      {"Content-Type", (r, v) => r.ContentType = v},
-                      {"Expect", (r, v) => r.Expect = v},
-                      {"Date", (r, v) => { /* Set by system */ }},
-                      {"Host", (r, v) => { /* Set by system */ }},
-                      {"If-Modified-Since", (r, v) => r.IfModifiedSince = Convert.ToDateTime(v)},
-                      { "Range", (r, v) => { /* r.AddRange(); */ }}, 
-                      {"Referer", (r, v) => r.Referer = v}, 
-                      {"Transfer-Encoding", (r, v) => { r.TransferEncoding = v; r.SendChunked = true;}},
-                      {"User-Agent", (r, v) => r.UserAgent = v}
-                  };
+        private Action<Http> _preRequest;
 
         public string Endpoint { get; private set; }
 
@@ -125,10 +113,10 @@ namespace hammock2
             get { return _headers; }
         }
 
-        public Action<Http> Authentication
+        public Action<Http> PreRequest
         {
-            get { return _authentication; }
-            set { _authentication = value; }
+            get { return _preRequest; }
+            set { _preRequest = value; }
         }
 
         public bool Trace { get; set; }
@@ -147,41 +135,36 @@ namespace hammock2
         public override bool TrySetMember(SetMemberBinder binder, object value)
         {
             var name = binder.Name.ToLowerInvariant();
-
             if (name.Equals("authentication"))
             {
-                if (value is Action<Http>)
+                var authentication = value as Action<Http>;
+                if (authentication != null)
                 {
-                    _authentication = (Action<Http>)value;
+                    _preRequest = authentication;
                 }
             }
-
             return true;
         }
 
         public override bool TryGetMember(GetMemberBinder binder, out object result)
         {
             var name = binder.Name.ToLowerInvariant();
-
             if (name.Equals("headers"))
             {
                 result = _headers;
                 return true;
             }
-
-            if (name.Equals("authentication"))
+            if (name.Equals("prerequest"))
             {
-                result = _authentication;
+                result = _preRequest;
                 return true;
             }
-
             if (_node != null)
             {
                 return _node.TryGetMember(binder, out result);
             }
             _node = new UrlSegment(this, name);
             result = _node;
-
             return true;
         }
 
@@ -191,115 +174,54 @@ namespace hammock2
             var node = _node ?? (_node = new UrlSegment(this, name));
             return node.TryInvokeMember(binder, args, out result);
         }
-
-        internal string Get(string url)
+        
+        public override bool TryInvoke(InvokeBinder binder, object[] args, out object result)
         {
-            return Request(url, "GET");
+            var argTypes = args.Select(arg => arg.GetType()).ToArray();
+            if(argTypes.Length == 0)
+            {
+                result = Get(Endpoint);
+                return true;
+            }
+            var ctor = typeof(Http).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null, argTypes, null);
+            if (ctor == null)
+            {
+                result = null;
+                return false;
+            }
+            result = ctor.Invoke(args);
+            return true;
+        }
+        
+        internal dynamic Get(string url)
+        {
+            if (_preRequest != null)
+            {
+                _preRequest(this);
+            }
+            return Engine.Request(url, "GET", _headers, Trace, null);
         }
 
-        internal string Post(string url, dynamic body)
+        internal dynamic Post(string url, dynamic body)
         {
-            return Request(url, "POST");
+            if (_preRequest != null)
+            {
+                _preRequest(this);
+            }
+            return Engine.Request(url, "POST", _headers, Trace, body);
         }
 
-        private string Request(string url, string method)
-        {
-            if (_authentication != null)
-            {
-                _authentication(this);
-            }
-
-            var request = (HttpWebRequest)WebRequest.Create(url);
-            request.Method = method;
-
-            foreach (var name in _headers.AllKeys)
-            {
-                if (_specialHeaders.ContainsKey(name))
-                {
-                    _specialHeaders[name](request, _headers[name]);
-                }
-                else
-                {
-                    request.Headers.Add(name, _headers[name]);
-                }
-            }
-            TraceRequest(request);
-
-            var response = (HttpWebResponse)request.GetResponse();
-            try
-            {
-                string result;
-                using (var stream = response.GetResponseStream())
-                {
-                    using (var sr = new StreamReader(stream))
-                    {
-                        result = sr.ReadToEnd();
-                        sr.Close();
-                    }
-                }
-                return result;
-            }
-            catch (WebException ex)
-            {
-                string result = null;
-                if (ex.Response is HttpWebResponse)
-                {
-                    var sr = new StreamReader(ex.Response.GetResponseStream());
-                    result = sr.ReadToEnd();
-                    sr.Close();
-                }
-                return result;
-            }
-        }
-
-        [Conditional("TRACE")]
-        private void TraceRequest(WebRequest request)
-        {
-            if (!Trace) return;
-            var version = request is HttpWebRequest
-                              ? string.Concat("HTTP/", ((HttpWebRequest)request).ProtocolVersion)
-                              : "HTTP/v1.1";
-            System.Diagnostics.Trace.WriteLine(string.Concat("--REQUEST: ", request.RequestUri.Scheme, "://",
-                                                             request.RequestUri.Host));
-            var pathAndQuery = string.Concat(request.RequestUri.AbsolutePath,
-                                             string.IsNullOrEmpty(request.RequestUri.Query)
-                                                 ? ""
-                                                 : string.Concat(request.RequestUri.Query));
-            System.Diagnostics.Trace.WriteLine(string.Concat(request.Method, " ", pathAndQuery, " ", version));
-            TraceHeaders(request);
-        }
-
-        [Conditional("TRACE")]
-        private void TraceHeaders(WebRequest request)
-        {
-            if (!Trace) return;
-            var restricted =
-                _specialHeaders.Keys.Where(key => !string.IsNullOrWhiteSpace(request.Headers[(string)key])).Select(
-                    key => string.Concat(key, ": ", request.Headers[key]));
-            var remaining =
-                request.Headers.AllKeys.Except(_specialHeaders.Keys).Where(
-                    key => !string.IsNullOrWhiteSpace(request.Headers[key])).Select(
-                        key => string.Concat(key, ": ", request.Headers[key]));
-            var all = restricted.ToList();
-            all.AddRange(remaining);
-            all.Sort();
-            foreach (var trace in all)
-            {
-                System.Diagnostics.Trace.WriteLine(trace);
-            }
-        }
-
-        private class UrlSegment : DynamicObject
+        public class UrlSegment : DynamicObject
         {
             private const string PrivateParameter = "__";
             private UrlSegment _inner;
-            private readonly Http _client;
+            private readonly Http _http;
             private string Name { get; set; }
             private string Separator { get; set; }
 
             public UrlSegment(Http client, string name)
             {
-                _client = client;
+                _http = client;
                 Name = name;
                 Separator = name.Equals("json") ? "." : "/";
             }
@@ -311,51 +233,40 @@ namespace hammock2
                 {
                     return _inner.TryGetMember(binder, out result);
                 }
-                _inner = new UrlSegment(_client, name);
+                _inner = new UrlSegment(_http, name);
                 result = _inner;
                 return true;
             }
 
             public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
             {
-                // A single nameless, parameter means a POST entity
+                // A single nameless parameter means a POST entity
                 dynamic body = null;
                 if (binder.CallInfo.ArgumentCount == 1 && binder.CallInfo.ArgumentNames.Count == 0)
                 {
                     body = Json.Serialize(args[0]);
                 }
-
                 var names = binder.CallInfo.ArgumentNames.Select(n => n.ToLowerInvariant()).ToList();
                 var url = BuildUrl(binder);
-
                 var method = "GET";
                 if (body != null)
                 {
                     method = "POST";
                 }
                 method = GetMethodOverride(method, args, names);
-
                 var queryString = BuildQueryString(names, args);
-
-                string response;
+                dynamic response;
                 switch (method)
                 {
                     case "POST":
-                        if (body != null)
-                        {
-                            response = _client.Post(string.Concat(url, queryString), body);
-                        }
-                        else
-                        {
-                            response = _client.Post(string.Concat(url, queryString), null);
-                        }
+                        response = _http.Post(string.Concat(url, queryString), body);
                         break;
                     case "GET":
                     default:
-                        response = _client.Get(string.Concat(url, queryString));
+                        response = _http.Get(string.Concat(url, queryString));
                         break;
                 }
-                result = Json.Deserialize(response);
+                result = response;
                 return true;
             }
 
@@ -397,19 +308,19 @@ namespace hammock2
             private string BuildUrl(InvokeMemberBinder binder)
             {
                 var segments = new List<string>();
-                if (_client._node != null)
+                if (_http._node != null)
                 {
-                    segments.Add(_client._node.Separator);
-                    segments.Add(_client._node.Name);
+                    segments.Add(_http._node.Separator);
+                    segments.Add(_http._node.Name);
                 }
-                WalkSegments(segments, _client._node);
+                WalkSegments(segments, _http._node);
 
                 var last = binder.Name.ToLower();
                 segments.Add(last.Equals("json") ? "." : "/");
                 segments.Add(last);
 
                 var sb = new StringBuilder();
-                sb.Append(_client.Endpoint);
+                sb.Append(_http.Endpoint);
                 foreach (var segment in segments)
                 {
                     sb.Append(segment);
@@ -429,5 +340,11 @@ namespace hammock2
                 WalkSegments(segments, node._inner);
             }
         }
+    }
+
+    public class HttpReply
+    {
+        public HttpResponseMessage Response { get; set; }
+        public DynamicObject Body { get; set; }
     }
 }
