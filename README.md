@@ -15,3 +15,4 @@ Console.WriteLine(user.ScreenName + ":" + user.Status.Text);
 Todo:
 - Really just a prototype right now, needs real use to flush out trigger methods
 - Use the new HttpClient with async/await
+- Maybe an embeddable serializer if it's worth being a true "single file"; but SS is too fast to ignore
