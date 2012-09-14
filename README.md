@@ -13,6 +13,7 @@ Console.WriteLine(user.ScreenName + ":" + user.Status.Text);
 ```
 
 Bring your own serializer:
+
 hammock2 needs something to serialize JSON with. If you don't want to use ServiceStack then don't bring 
 in the partial class that implements it. If you take only the hammock.cs file, then add the following lines 
 of code to provide your own serializer implementation:
@@ -43,6 +44,5 @@ namespace hammock2
 ```
 
 Todo:
-- Really just a prototype right now, needs real use to flush out trigger methods
+- Really just a prototype right now, needs real use to flush out trigger methods (end of method params)
 - Use the new HttpClient with async/await
-- Maybe an embeddable serializer if it's worth being a true "single file"; but SS is too fast to ignore
