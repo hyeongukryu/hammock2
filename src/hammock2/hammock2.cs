@@ -11,6 +11,90 @@ using ServiceStack.Text;
 
 namespace hammock2
 {
+    public interface JsonThing
+    {
+        string DynamicToString(dynamic thing);
+        IDictionary<string, object> StringToHash(string json);
+    }
+
+    public partial class Json : DynamicObject
+    {
+        private static readonly JsonThing Thing;
+
+        private readonly IDictionary<string, object> _hash = new Dictionary<string, object>();
+
+        public static string Serialize(dynamic instance)
+        {
+            return Thing.DynamicToString(instance);
+        }
+
+        public static dynamic Deserialize(string json)
+        {
+            return new Json(Thing.StringToHash(json));
+        }
+
+        public Json(IEnumerable<KeyValuePair<string, object>> hash)
+        {
+            _hash.Clear();
+            foreach (var entry in hash)
+            {
+                _hash.Add(Underscored(entry.Key), entry.Value);
+            }
+        }
+
+        public override bool TrySetMember(SetMemberBinder binder, object value)
+        {
+            var name = Underscored(binder.Name);
+            _hash[name] = value;
+            return _hash[name] == value;
+        }
+
+        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        {
+            var name = Underscored(binder.Name);
+            return YieldMember(name, out result);
+        }
+
+        public override string ToString()
+        {
+            return JsonSerializer.SerializeToString(_hash);
+        }
+
+        private bool YieldMember(string name, out object result)
+        {
+            if (_hash.ContainsKey(name))
+            {
+                var json = _hash[name].ToString();
+                if (json.TrimStart(' ').StartsWith("{"))
+                {
+                    var nested = JsonSerializer.DeserializeFromString<IDictionary<string, object>>(json);
+                    result = new Json(nested);
+                    return true;
+                }
+                result = json;
+                return _hash[name] == result;
+            }
+            result = null;
+            return false;
+        }
+
+        internal static string Underscored(IEnumerable<char> pascalCase)
+        {
+            var sb = new StringBuilder();
+            var i = 0;
+            foreach (var c in pascalCase)
+            {
+                if (char.IsUpper(c) && i > 0)
+                {
+                    sb.Append("_");
+                }
+                sb.Append(c);
+                i++;
+            }
+            return sb.ToString().ToLowerInvariant();
+        }
+    }
+
     public class Http : DynamicObject
     {
         private UrlSegment _node;
@@ -68,7 +152,7 @@ namespace hammock2
             {
                 if (value is Action<Http>)
                 {
-                    _authentication = (Action<Http>) value;
+                    _authentication = (Action<Http>)value;
                 }
             }
 
@@ -125,7 +209,7 @@ namespace hammock2
                 _authentication(this);
             }
 
-            var request = (HttpWebRequest) WebRequest.Create(url);
+            var request = (HttpWebRequest)WebRequest.Create(url);
             request.Method = method;
 
             foreach (var name in _headers.AllKeys)
@@ -141,7 +225,7 @@ namespace hammock2
             }
             TraceRequest(request);
 
-            var response = (HttpWebResponse) request.GetResponse();
+            var response = (HttpWebResponse)request.GetResponse();
             try
             {
                 string result;
@@ -173,7 +257,7 @@ namespace hammock2
         {
             if (!Trace) return;
             var version = request is HttpWebRequest
-                              ? string.Concat("HTTP/", ((HttpWebRequest) request).ProtocolVersion)
+                              ? string.Concat("HTTP/", ((HttpWebRequest)request).ProtocolVersion)
                               : "HTTP/v1.1";
             System.Diagnostics.Trace.WriteLine(string.Concat("--REQUEST: ", request.RequestUri.Scheme, "://",
                                                              request.RequestUri.Host));
@@ -190,7 +274,7 @@ namespace hammock2
         {
             if (!Trace) return;
             var restricted =
-                _specialHeaders.Keys.Where(key => !string.IsNullOrWhiteSpace(request.Headers[(string) key])).Select(
+                _specialHeaders.Keys.Where(key => !string.IsNullOrWhiteSpace(request.Headers[(string)key])).Select(
                     key => string.Concat(key, ": ", request.Headers[key]));
             var remaining =
                 request.Headers.AllKeys.Except(_specialHeaders.Keys).Where(
@@ -344,84 +428,6 @@ namespace hammock2
                 segments.Add(node._inner.Name);
                 WalkSegments(segments, node._inner);
             }
-        }
-    }
-
-    public class Json : DynamicObject
-    {
-        private readonly IDictionary<string, object> _hash = new Dictionary<string, object>();
-
-        public static string Serialize(dynamic instance)
-        {
-            var json = JsonSerializer.SerializeToString(instance);
-            return json;
-        }
-
-        public static dynamic Deserialize(string json)
-        {
-            var hash = JsonSerializer.DeserializeFromString<IDictionary<string, object>>(json);
-            return new Json(hash);
-        }
-
-        public Json(IEnumerable<KeyValuePair<string, object>> hash)
-        {
-            _hash.Clear();
-            foreach (var entry in hash)
-            {
-                _hash.Add(Underscored(entry.Key), entry.Value);
-            }
-        }
-
-        public override bool TrySetMember(SetMemberBinder binder, object value)
-        {
-            var name = Underscored(binder.Name);
-            _hash[name] = value;
-            return _hash[name] == value;
-        }
-
-        public override bool TryGetMember(GetMemberBinder binder, out object result)
-        {
-            var name = Underscored(binder.Name);
-            return YieldMember(name, out result);
-        }
-
-        public override string ToString()
-        {
-            return JsonSerializer.SerializeToString(_hash);
-        }
-
-        private bool YieldMember(string name, out object result)
-        {
-            if (_hash.ContainsKey(name))
-            {
-                var json = _hash[name].ToString();
-                if (json.TrimStart(' ').StartsWith("{"))
-                {
-                    var nested = JsonSerializer.DeserializeFromString<IDictionary<string, object>>(json);
-                    result = new Json(nested);
-                    return true;
-                }
-                result = json;
-                return _hash[name] == result;
-            }
-            result = null;
-            return false;
-        }
-
-        internal static string Underscored(IEnumerable<char> pascalCase)
-        {
-            var sb = new StringBuilder();
-            var i = 0;
-            foreach (var c in pascalCase)
-            {
-                if (char.IsUpper(c) && i > 0)
-                {
-                    sb.Append("_");
-                }
-                sb.Append(c);
-                i++;
-            }
-            return sb.ToString().ToLowerInvariant();
         }
     }
 }

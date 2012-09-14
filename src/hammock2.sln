@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hammock2", "hammock2.csproj", "{451020B7-2BFC-4A0F-8DB4-C0EED3BC5FBB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hammock2", "hammock2\hammock2.csproj", "{451020B7-2BFC-4A0F-8DB4-C0EED3BC5FBB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hammock2.Tests", "..\hammock2.Tests\hammock2.Tests.csproj", "{AF1C80FC-9398-4EE8-A356-EE4569C76ECA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hammock2.Tests", "hammock2.Tests\hammock2.Tests.csproj", "{AF1C80FC-9398-4EE8-A356-EE4569C76ECA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{64D0E7B7-7A52-4F7D-AB9D-CF25508897F7}"
 	ProjectSection(SolutionItems) = preProject
