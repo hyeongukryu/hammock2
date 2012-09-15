@@ -33,7 +33,7 @@ namespace hammock2
             HttpContent content = null;
             if (body != null)
             {
-                content = new StringContent(Json.Serialize(body));
+                content = new StringContent(HttpBody.Serialize(body));
             }
             request.Content = content;
             return BuildResponse(request, url, method);
@@ -51,7 +51,7 @@ namespace hammock2
             var bodyString = response.Content != null ? response.Content.ReadAsStringAsync().Result : null;
             
             // Content negotiation goes here...
-            Json body = bodyString != null ? Json.Deserialize(bodyString) : null;
+            HttpBody body = bodyString != null ? HttpBody.Deserialize(bodyString) : null;
             return new HttpReply
             {
                 Body = body,

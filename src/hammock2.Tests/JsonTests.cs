@@ -10,7 +10,7 @@ namespace hammock2.Tests
         public void Can_serialize_dynamic_instance()
         {
             var dog = new { Name = "Spot" };
-            var json = Json.Serialize(dog);
+            var json = HttpBody.Serialize(dog);
             
             Assert.IsNotNull(json);
             Console.WriteLine(json);
@@ -20,8 +20,8 @@ namespace hammock2.Tests
         public void Can_deserialize_dynamic_instance()
         {
             var dog = new { Name = "Spot" };
-            var json = Json.Serialize(dog);
-            var deserialized = Json.Deserialize(json);
+            var json = HttpBody.Serialize(dog);
+            var deserialized = HttpBody.Deserialize(json);
 
             Assert.IsNotNull(deserialized);
             Assert.AreEqual(dog.Name, deserialized.Name);

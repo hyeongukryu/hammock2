@@ -39,12 +39,23 @@ namespace hammock2.Tests
         }
 
         [Test]
+        public void When_resource_not_found_hashes_are_safely_traversed()
+        {
+            var http = DynamicHttp();
+            var reply = http.This.Is.Totally.Not.A.Url();
+            Assert.AreEqual(HttpStatusCode.NotFound, reply.Response.StatusCode);
+            var body = reply.Body;
+            var nonsense = body.Definitely.No.Property.Structure.Such.As.This;
+            Assert.AreEqual(nonsense, body.Null);
+        }
+
+        [Test]
         public void Can_get_an_entity_from_a_url()
         {
             // users/show.json?screen_name=danielcrenna
             var twitter = DynamicHttp();
-            var result = twitter.Users.Show.Json(screen_name: "danielcrenna");
-            var user = result.Body;
+            var reply = twitter.Users.Show.Json(screen_name: "danielcrenna");
+            var user = reply.Body;
             Assert.IsNotNull(user);
             Assert.AreEqual("danielcrenna", user.ScreenName);
             Console.WriteLine(user.ScreenName + ":" + user.Status.Text);

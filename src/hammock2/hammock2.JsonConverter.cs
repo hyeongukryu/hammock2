@@ -4,9 +4,9 @@ using ServiceStack.Text;
 
 namespace hammock2
 {
-    public partial class Json
+    public partial class HttpBody
     {
-        static Json()
+        static HttpBody()
         {
             Converter = new ServiceStackJsonConverter();
         }

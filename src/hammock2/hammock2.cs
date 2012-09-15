@@ -16,8 +16,9 @@ namespace hammock2
         string HashToString(IDictionary<string, object> hash);
     }
 
-    public partial class Json : DynamicObject
+    public partial class HttpBody : DynamicObject
     {
+        protected internal static readonly Null Null = new Null();
         protected internal static readonly IJsonConverter Converter;
 
         private readonly IDictionary<string, object> _hash = new Dictionary<string, object>();
@@ -29,10 +30,10 @@ namespace hammock2
 
         public static dynamic Deserialize(string json)
         {
-            return new Json(Converter.StringToHash(json));
+            return new HttpBody(Converter.StringToHash(json));
         }
 
-        public Json(IEnumerable<KeyValuePair<string, object>> hash)
+        public HttpBody(IEnumerable<KeyValuePair<string, object>> hash)
         {
             _hash.Clear();
             foreach (var entry in hash ?? new Dictionary<string, object>())
@@ -51,6 +52,11 @@ namespace hammock2
         public override bool TryGetMember(GetMemberBinder binder, out object result)
         {
             var name = Underscored(binder.Name);
+            if (name.Equals("null"))
+            {
+                result = Null;
+                return true;
+            }
             return YieldMember(name, out result);
         }
 
@@ -61,20 +67,21 @@ namespace hammock2
 
         private bool YieldMember(string name, out object result)
         {
-            if (_hash.ContainsKey(name))
+            object value;
+            if (_hash.TryGetValue(name, out value))
             {
-                var json = _hash[name].ToString();
+                var json = value.ToString();
                 if (json.TrimStart(' ').StartsWith("{"))
                 {
                     var nested = Converter.StringToHash(json);
-                    result = new Json(nested);
+                    result = new HttpBody(nested);
                     return true;
                 }
                 result = json;
                 return _hash[name] == result;
             }
-            result = null;
-            return false;
+            result = Null;
+            return true;
         }
 
         internal static string Underscored(IEnumerable<char> pascalCase)
@@ -91,6 +98,23 @@ namespace hammock2
                 i++;
             }
             return sb.ToString().ToLowerInvariant();
+        }
+    }
+
+    public class Null : DynamicObject
+    {
+        public override bool TrySetMember(SetMemberBinder binder, object value)
+        {
+            return true;
+        }
+        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        {
+            result = this;
+            return true;
+        }
+        public override bool Equals(object obj)
+        {
+            return obj == null;
         }
     }
 
@@ -244,7 +268,7 @@ namespace hammock2
                 dynamic body = null;
                 if (binder.CallInfo.ArgumentCount == 1 && binder.CallInfo.ArgumentNames.Count == 0)
                 {
-                    body = Json.Serialize(args[0]);
+                    body = HttpBody.Serialize(args[0]);
                 }
                 // No arguments to an invocation means go, go, go!
                 var url = BuildUrl(binder, args.Length == 0);
@@ -349,9 +373,9 @@ namespace hammock2
     public class HttpReply
     {
         public HttpResponseMessage Response { get; set; }
-        public DynamicObject Body { get; set; }
+        public HttpBody Body { get; set; }
     }
-
+    
     public class HttpAuth
     {
         public static Action<Http> Basic(string token)
