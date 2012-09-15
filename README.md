@@ -12,7 +12,7 @@ _LOL jk there's dependencies_
 Usage
 -----
 ```csharp
-// Make the request
+// Spin up a client
 dynamic twitter = new Http("https://api.twitter.com");
 
 // GET https://api.twitter.com/users/show.json?screen_name=danielcrenna
@@ -22,7 +22,7 @@ var user = reply.Body;
 
 // Get the result
 Console.WriteLine(response.StatusCode + response.ReasonPhrase); // 200 OK
-Console.WriteLine(user.ScreenName + ": " + user.Status.Text);    // danielcrenna: Best. Library. Evar.
+Console.WriteLine(user.ScreenName + ": " + user.Status.Text);   // danielcrenna: Best. Library. Evar.
 ```
 
 _Bring your own web stack_
@@ -102,6 +102,7 @@ _stripe.Auth = auth;
 
 TODO:
 - tracing
+- deserialize body in single call
 - match method prefix to web method
 - content negotiation / formatters
 - async/await
