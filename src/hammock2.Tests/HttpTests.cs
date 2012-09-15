@@ -5,6 +5,11 @@ using hammock2.Tests.API;
 
 namespace hammock2.Tests
 {
+    // TODO
+    // Test for basic auth
+    // Test to confirm query string received
+    // Test POST entities
+
     [TestFixture]
     public class HttpTests
     {
@@ -50,26 +55,5 @@ namespace hammock2.Tests
             dynamic http = new Http("http://localhost:8787");
             return http;
         }
-        
-        //[Test]
-        //public void Can_post_an_entity_from_a_url()
-        //{
-        //    // URL: http://api.twitter.com/users/show.format 
-        //    dynamic twitter = new Http("http://api.twitter.com");
-        //    twitter.Trace = true;
-        //    twitter.Users.Show.Json(new { Purpose = "To rock!"});
-        //}
-        
-        //[Test]
-        //public void Can_define_authentication_function()
-        //{
-        //    var twitter = new Http("http://api.twitter.com");
-        //    twitter.Headers.Add("bob", "loblaw");
-        //    twitter.PreRequest = http => http.Headers.Add("X-Blah-Sauce", "Wizzywig!");
-        //    var user = twitter.Query.Users.Show.Json(screen_name: "danielcrenna");
-        //    Assert.IsNotNull(user);
-        //    Assert.AreEqual("danielcrenna", user.ScreenName);
-        //    Console.WriteLine(user.ScreenName + ":" + user.Status.Text);
-        //}
     }
 }

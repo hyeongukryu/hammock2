@@ -13,10 +13,12 @@ Usage:
 ```csharp
 // Make the request
 dynamic twitter = new Http("http://api.twitter.com");
-var response = twitter.Users.Show.Json(screen_name: "danielcrenna");
-var user = response.Body;
+var reply = twitter.Users.Show.Json(screen_name: "danielcrenna");
+var response = reply.Response;
+var user = reply.Body;
 
 // Get the result
+Console.WriteLine(response.StatusCode + response.ReasonPhrase);
 Console.WriteLine(user.ScreenName + ":" + user.Status.Text);
 ```
 
@@ -36,17 +38,34 @@ public interface IJsonConverter
 
 public interface IHttpEngine
 {
-    dynamic Request(string url, string method, NameValueCollection headers, 
-                    dynamic body, bool trace, Action<Http> preRequest);
+    dynamic Request(string url, string method, NameValueCollection headers, dynamic body, bool trace);
 }
 ```
 
 _Authentication_
-- Option 1: pre-request request closure (so you can set headers on each outgoing request)
-- Option 2: handler factory overload (if you're using the stock HttpClientEngine)
+
+*Use the `HttpAuth` helper:*
+```
+	_stripe = new Http("https://api.stripe.com/v1/");
+	_stripeKey = ConfigurationManager.AppSettings["StripeTestKey"];
+	_stripe.Auth = HttpAuth.Basic(_stripeKey);
+```
+
+*Pass in your own custom pre-request code:*
+```
+Action<Http> auth = http =>
+{
+    var authorization = Convert.ToBase64String(Encoding.UTF8.GetBytes(_stripeKey + ":"));
+    http.Headers.Add("Authorization", "Basic " + authorization);
+};
+_stripe.Auth = auth;
+```
+
 
 Todo:
+- blast dynamic body into POCOs if that's your thing
 - content negotiation / formatters
 - async/await
-- better triggers
+
+
 

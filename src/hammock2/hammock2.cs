@@ -96,7 +96,7 @@ namespace hammock2
 
     public interface IHttpEngine
     {
-        dynamic Request(string url, string method, NameValueCollection headers, bool trace, dynamic body);
+        dynamic Request(string url, string method, NameValueCollection headers, dynamic body, bool trace);
     }
 
     public partial class Http : DynamicObject
@@ -104,7 +104,7 @@ namespace hammock2
         private static readonly IHttpEngine Engine;
         private UrlSegment _node;
         private readonly NameValueCollection _headers;
-        private Action<Http> _preRequest;
+        private Action<Http> _auth;
 
         public string Endpoint { get; private set; }
 
@@ -113,16 +113,17 @@ namespace hammock2
             get { return _headers; }
         }
 
-        public Action<Http> PreRequest
+        public Action<Http> Auth
         {
-            get { return _preRequest; }
-            set { _preRequest = value; }
+            get { return _auth; }
+            set { _auth = value; }
         }
 
         public bool Trace { get; set; }
 
         public Http(string endpoint)
         {
+            if (endpoint.EndsWith("/")) endpoint = endpoint.TrimEnd('/');
             Endpoint = endpoint;
             _headers = new NameValueCollection();
         }
@@ -135,12 +136,11 @@ namespace hammock2
         public override bool TrySetMember(SetMemberBinder binder, object value)
         {
             var name = binder.Name.ToLowerInvariant();
-            if (name.Equals("authentication"))
+            if (name.Equals("auth"))
             {
-                var authentication = value as Action<Http>;
-                if (authentication != null)
+                if(value is Action<Http>)
                 {
-                    _preRequest = authentication;
+                    _auth = value as Action<Http>;
                 }
             }
             return true;
@@ -154,9 +154,9 @@ namespace hammock2
                 result = _headers;
                 return true;
             }
-            if (name.Equals("prerequest"))
+            if (name.Equals("auth"))
             {
-                result = _preRequest;
+                result = _auth;
                 return true;
             }
             if (_node != null)
@@ -195,20 +195,20 @@ namespace hammock2
         
         internal dynamic Get(string url)
         {
-            if (_preRequest != null)
+            if(_auth != null)
             {
-                _preRequest(this);
+                _auth(this);
             }
-            return Engine.Request(url, "GET", _headers, Trace, null);
+            return Engine.Request(url, "GET", _headers, null, Trace);
         }
 
         internal dynamic Post(string url, dynamic body)
         {
-            if (_preRequest != null)
+            if (_auth != null)
             {
-                _preRequest(this);
+                _auth(this);
             }
-            return Engine.Request(url, "POST", _headers, Trace, body);
+            return Engine.Request(url, "POST", _headers, body, Trace);
         }
 
         public class UrlSegment : DynamicObject
@@ -246,13 +246,14 @@ namespace hammock2
                 {
                     body = Json.Serialize(args[0]);
                 }
-                var names = binder.CallInfo.ArgumentNames.Select(n => n.ToLowerInvariant()).ToList();
-                var url = BuildUrl(binder);
+                // No arguments to an invocation means go, go, go!
+                var url = BuildUrl(binder, args.Length == 0);
                 var method = "GET";
                 if (body != null)
                 {
                     method = "POST";
                 }
+                var names = binder.CallInfo.ArgumentNames.Select(n => n.ToLowerInvariant()).ToList();
                 method = GetMethodOverride(method, args, names);
                 var queryString = BuildQueryString(names, args);
                 dynamic response;
@@ -305,7 +306,7 @@ namespace hammock2
                 return sb.ToString();
             }
 
-            private string BuildUrl(InvokeMemberBinder binder)
+            private string BuildUrl(InvokeMemberBinder binder, bool isLast = false)
             {
                 var segments = new List<string>();
                 if (_http._node != null)
@@ -315,10 +316,13 @@ namespace hammock2
                 }
                 WalkSegments(segments, _http._node);
 
-                var last = binder.Name.ToLower();
-                segments.Add(last.Equals("json") ? "." : "/");
-                segments.Add(last);
-
+                if(!isLast)
+                {
+                    var last = binder.Name.ToLower();
+                    segments.Add(last.Equals("json") ? "." : "/");
+                    segments.Add(last);    
+                }
+                
                 var sb = new StringBuilder();
                 sb.Append(_http.Endpoint);
                 foreach (var segment in segments)
@@ -347,4 +351,25 @@ namespace hammock2
         public HttpResponseMessage Response { get; set; }
         public DynamicObject Body { get; set; }
     }
+
+    public class HttpAuth
+    {
+        public static Action<Http> Basic(string token)
+        {
+            return Basic(token, "");
+        }
+        public static Action<Http> Basic(string username, string password)
+        {
+            return http =>
+            {
+                var authorization = Convert.ToBase64String(Encoding.UTF8.GetBytes(username + ":" + password));
+                http.Headers.Add("Authorization", "Basic " + authorization);
+            };
+        }
+        public static Action<Http> Custom(Action<Http> action)
+        {
+            return action;
+        }
+    }
 }
+

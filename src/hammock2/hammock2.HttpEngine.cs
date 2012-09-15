@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Specialized;
+using System.Net;
 using System.Net.Http;
 
 namespace hammock2
@@ -13,9 +14,15 @@ namespace hammock2
     }
     public class HttpClientEngine : IHttpEngine
     {
-        public static Func<HttpClient> ClientFactory = () => new HttpClient();
+        public static Func<HttpClient> ClientFactory = () => new HttpClient(DefaultHandler);
+        public static HttpClientHandler DefaultHandler = new HttpClientHandler
+        {
+            PreAuthenticate = true,
+            AllowAutoRedirect = true,
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.None
+        };
 
-        public dynamic Request(string url, string method, NameValueCollection headers, bool trace, dynamic body)
+        public dynamic Request(string url, string method, NameValueCollection headers, dynamic body, bool trace)
         {
             var request = new HttpRequestMessage();
             foreach (var name in headers.AllKeys)
@@ -28,14 +35,19 @@ namespace hammock2
             {
                 content = new StringContent(Json.Serialize(body));
             }
-            return BuildResponse(request, url, method, content);
+            request.Content = content;
+            return BuildResponse(request, url, method);
         }
 
-        public dynamic BuildResponse(HttpRequestMessage message, string url, string method, HttpContent content = null)
+        public dynamic BuildResponse(HttpRequestMessage request, string url, string method)
         {
             var client = ClientFactory();
+            foreach(var header in request.Headers)
+            {
+                client.DefaultRequestHeaders.Add(header.Key, header.Value);
+            }
             var requestMethod = method.Trim().ToUpperInvariant();
-            var response = GetHttpResponse(client, url, content, requestMethod);
+            var response = GetHttpResponse(client, url, request.Content, requestMethod);
             var bodyString = response.Content != null ? response.Content.ReadAsStringAsync().Result : null;
             
             // Content negotiation goes here...
@@ -71,3 +83,12 @@ namespace hammock2
         }
     }
 }
+
+// Todo:
+// MethodOverride is horrid
+// Content negotiation both ways
+// NTLM
+//var ntlm = new HttpClientHandler();
+//ntlm.UseDefaultCredentials = true;
+//ntlm.PreAuthenticate = true;
+//ntlm.ClientCertificateOptions = ClientCertificateOption.Automatic;
