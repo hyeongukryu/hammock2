@@ -14,12 +14,19 @@ namespace hammock2
     }
     public class HttpClientEngine : IHttpEngine
     {
-        public static Func<HttpClient> ClientFactory = () => new HttpClient(DefaultHandler);
+        public static Func<HttpClient> ClientFactory = () => PerRequestHandler != null ? new HttpClient(PerRequestHandler, false) : new HttpClient(DefaultHandler, false);
         public static HttpClientHandler DefaultHandler = new HttpClientHandler
         {
             PreAuthenticate = true,
             AllowAutoRedirect = true,
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.None
+        };
+        public static HttpClientHandler PerRequestHandler = DefaultHandler;
+        public static HttpClientHandler NtlmHandler = new HttpClientHandler
+        {
+            UseDefaultCredentials = true,
+            PreAuthenticate = true,
+            ClientCertificateOptions = ClientCertificateOption.Automatic
         };
 
         public dynamic Request(string url, string method, NameValueCollection headers, dynamic body, bool trace)
@@ -83,12 +90,3 @@ namespace hammock2
         }
     }
 }
-
-// Todo:
-// MethodOverride is horrid
-// Content negotiation both ways
-// NTLM
-//var ntlm = new HttpClientHandler();
-//ntlm.UseDefaultCredentials = true;
-//ntlm.PreAuthenticate = true;
-//ntlm.ClientCertificateOptions = ClientCertificateOption.Automatic;

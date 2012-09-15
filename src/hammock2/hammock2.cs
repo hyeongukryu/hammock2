@@ -9,28 +9,41 @@ using System.Text;
 
 namespace hammock2
 {
-    public interface IJsonConverter
+    public interface IMediaConverter
     {
-        string DynamicToString(dynamic thing);
+        string DynamicToString(dynamic instance);
         IDictionary<string, object> StringToHash(string json);
         string HashToString(IDictionary<string, object> hash);
+        T DynamicTo<T>(dynamic instance);
+        T StringTo<T>(string instance);
     }
 
     public partial class HttpBody : DynamicObject
     {
-        protected internal static readonly Null Null = new Null();
-        protected internal static readonly IJsonConverter Converter;
-
         private readonly IDictionary<string, object> _hash = new Dictionary<string, object>();
-
+        
+        protected internal static readonly Null Null = new Null();
+        protected internal static readonly IMediaConverter Converter;
+        
         public static string Serialize(dynamic instance)
         {
             return Converter.DynamicToString(instance);
         }
-
-        public static dynamic Deserialize(string json)
+        public static dynamic Deserialize(string content)
         {
-            return new HttpBody(Converter.StringToHash(json));
+            return new HttpBody(Converter.StringToHash(content));
+        }
+        public static T Deserialize<T>(dynamic instance)
+        {
+            return Converter.DynamicTo<T>(instance);
+        }
+        public T Deserialize<T>(string content)
+        {
+            return Converter.StringTo<T>(content);
+        }
+        public T Deserialize<T>()
+        {
+            return Converter.DynamicTo<T>(this);
         }
 
         public HttpBody(IEnumerable<KeyValuePair<string, object>> hash)
@@ -111,10 +124,6 @@ namespace hammock2
         {
             result = this;
             return true;
-        }
-        public override bool Equals(object obj)
-        {
-            return obj == null;
         }
     }
 
@@ -246,8 +255,8 @@ namespace hammock2
             public UrlSegment(Http client, string name)
             {
                 _http = client;
-                Name = name;
-                Separator = name.Equals("json") ? "." : "/";
+                Name = name.Equals("dot") ? "" : name;
+                Separator = name.Equals("dot") ? "." : "/";
             }
 
             public override bool TryGetMember(GetMemberBinder binder, out object result)
@@ -270,8 +279,7 @@ namespace hammock2
                 {
                     body = HttpBody.Serialize(args[0]);
                 }
-                // No arguments to an invocation means go, go, go!
-                var url = BuildUrl(binder, args.Length == 0);
+                var url = BuildUrl(binder);
                 var method = "GET";
                 if (body != null)
                 {
@@ -330,7 +338,7 @@ namespace hammock2
                 return sb.ToString();
             }
 
-            private string BuildUrl(InvokeMemberBinder binder, bool isLast = false)
+            private string BuildUrl(InvokeMemberBinder binder)
             {
                 var segments = new List<string>();
                 if (_http._node != null)
@@ -339,12 +347,12 @@ namespace hammock2
                     segments.Add(_http._node.Name);
                 }
                 WalkSegments(segments, _http._node);
-
-                if(!isLast)
+                
+                // Don't double count if we're invoking on the first segment
+                if(segments.Count > 2)
                 {
                     var last = binder.Name.ToLower();
-                    segments.Add(last.Equals("json") ? "." : "/");
-                    segments.Add(last);    
+                    segments.Add(last);     
                 }
                 
                 var sb = new StringBuilder();
@@ -356,6 +364,34 @@ namespace hammock2
                 var url = sb.ToString();
                 return url;
             }
+
+            //private string BuildUrl(InvokeMemberBinder binder, bool isLast = false)
+            //{
+            //    var segments = new List<string>();
+            //    if (_http._node != null)
+            //    {
+            //        segments.Add(_http._node.Separator);
+            //        segments.Add(_http._node.Name);
+            //    }
+            //    WalkSegments(segments, _http._node);
+
+            //    //if(!isLast)
+            //    //{
+            //    //    var last = binder.Name.ToLower();
+            //    //    segments.Add(last.Equals("json") ? "." : "/");
+            //    //    segments.Add(last);    
+            //    //}
+
+            //    var sb = new StringBuilder();
+            //    sb.Append(_http.Endpoint);
+            //    foreach (var segment in segments)
+            //    {
+            //        sb.Append(segment);
+            //    }
+            //    var url = sb.ToString();
+            //    return url;
+            //}
+
 
             private static void WalkSegments(ICollection<string> segments, UrlSegment node)
             {
@@ -390,9 +426,13 @@ namespace hammock2
                 http.Headers.Add("Authorization", "Basic " + authorization);
             };
         }
-        public static Action<Http> Custom(Action<Http> action)
+        public static Action<Http> Ntlm()
         {
-            return action;
+            return http =>
+            {
+                // This breaks contract, since it relies on an implementation
+                HttpClientEngine.PerRequestHandler = HttpClientEngine.NtlmHandler;
+            };
         }
     }
 }

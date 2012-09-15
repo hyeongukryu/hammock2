@@ -54,7 +54,7 @@ namespace hammock2.Tests
         {
             // users/show.json?screen_name=danielcrenna
             var twitter = DynamicHttp();
-            var reply = twitter.Users.Show.Json(screen_name: "danielcrenna");
+            var reply = twitter.Users.Show.Dot.Json(screen_name: "danielcrenna");
             var user = reply.Body;
             Assert.IsNotNull(user);
             Assert.AreEqual("danielcrenna", user.ScreenName);
