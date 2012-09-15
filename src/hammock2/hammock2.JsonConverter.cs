@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using ServiceStack.Text;
 
 namespace hammock2
@@ -21,8 +22,9 @@ namespace hammock2
 
         public IDictionary<string, object> StringToHash(string json)
         {
-            var hash = JsonSerializer.DeserializeFromString<IDictionary<string, object>>(json);
-            return hash;
+            var hash = JsonSerializer.DeserializeFromString<JsonObject>(json);
+            var result = hash.ToDictionary<KeyValuePair<string, string>, string, object>(entry => entry.Key, entry => entry.Value);
+            return result;
         }
 
         public string HashToString(IDictionary<string, object> hash)
