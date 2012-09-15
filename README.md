@@ -9,7 +9,8 @@ _LOL jk there's dependencies_
 	PM> Install-Package AsyncBridge
 ```
 
-Usage:
+Usage
+-----
 ```csharp
 // Make the request
 dynamic twitter = new Http("http://api.twitter.com");
@@ -42,17 +43,17 @@ public interface IHttpEngine
 }
 ```
 
-_Authentication_
+Authentication
+--------------
+*Use the `HttpAuth` helper*
+```csharp
+_stripe = new Http("https://api.stripe.com/v1/");
+_stripeKey = ConfigurationManager.AppSettings["StripeTestKey"];
+_stripe.Auth = HttpAuth.Basic(_stripeKey);
+```
 
-*Use the `HttpAuth` helper:*
-```
-	_stripe = new Http("https://api.stripe.com/v1/");
-	_stripeKey = ConfigurationManager.AppSettings["StripeTestKey"];
-	_stripe.Auth = HttpAuth.Basic(_stripeKey);
-```
-
-*Pass in your own custom pre-request code:*
-```
+*Pass in your own custom pre-request code*
+```csharp
 Action<Http> auth = http =>
 {
     var authorization = Convert.ToBase64String(Encoding.UTF8.GetBytes(_stripeKey + ":"));
@@ -61,11 +62,7 @@ Action<Http> auth = http =>
 _stripe.Auth = auth;
 ```
 
-
-Todo:
+TODO:
 - blast dynamic body into POCOs if that's your thing
 - content negotiation / formatters
 - async/await
-
-
-
