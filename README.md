@@ -36,7 +36,7 @@ public interface IJsonConverter
 
 public interface IHttpEngine
 {
-    dynamic Request(string url, string method, NameValueCollection headers, bool trace, dynamic body);
+    dynamic Request(string url, string method, NameValueCollection headers, dynamic body, bool trace, Action<Http> preRequest);
 }
 ```
 
