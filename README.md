@@ -52,6 +52,12 @@ _Concrete addiction_
 If you really need concrete classes, you can do that too, by deserializing the whole body, or a portion of it:
 
 ```csharp
+public class StripeCustomer
+{
+    public string Id { get; set; }
+	// ...
+}
+
 public class Stripe
 {
     private readonly dynamic _stripe;
@@ -72,12 +78,6 @@ public class Stripe
         var customers = body.Deserialize<IEnumerable<StripeCustomer>>(body.Data);
         return customers;
     }
-}
-
-public class StripeCustomer
-{
-    public string Id { get; set; }
-	// ...
 }
 ```
 
