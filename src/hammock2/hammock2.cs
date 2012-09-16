@@ -213,7 +213,7 @@ namespace hammock2
             var argTypes = args.Select(arg => arg.GetType()).ToArray();
             if(argTypes.Length == 0)
             {
-                result = Get(Endpoint);
+                result = Engine.Request(Endpoint, "GET", _headers, null, Trace);
                 return true;
             }
             var ctor = typeof(Http).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null, argTypes, null);
@@ -225,25 +225,17 @@ namespace hammock2
             result = ctor.Invoke(args);
             return true;
         }
-        
-        internal dynamic Get(string url)
-        {
-            if(_auth != null)
-            {
-                _auth(this);
-            }
-            return Engine.Request(url, "GET", _headers, null, Trace);
-        }
 
-        internal dynamic Post(string url, dynamic body)
+        internal dynamic Execute(string url, string queryString, string method, dynamic body)
         {
             if (_auth != null)
             {
                 _auth(this);
             }
-            return Engine.Request(url, "POST", _headers, body, Trace);
+            var response = Engine.Request(string.Concat(url, queryString), method, _headers, body, Trace);
+            return response;
         }
-
+        
         public class UrlSegment : DynamicObject
         {
             private const string PrivateParameter = "__";
@@ -288,18 +280,7 @@ namespace hammock2
                 var names = binder.CallInfo.ArgumentNames.Select(n => n.ToLowerInvariant()).ToList();
                 method = GetMethodOverride(method, args, names);
                 var queryString = BuildQueryString(names, args);
-                dynamic response;
-                switch (method)
-                {
-                    case "POST":
-                        response = _http.Post(string.Concat(url, queryString), body);
-                        break;
-                    case "GET":
-                    default:
-                        response = _http.Get(string.Concat(url, queryString));
-                        break;
-                }
-                result = response;
+                result = _http.Execute(url, queryString, method, body);
                 return true;
             }
 
@@ -331,6 +312,8 @@ namespace hammock2
                             continue;
                         }
                         var value = values[i];
+                        if (value == null) continue;
+
                         sb.Append(i == 0 ? "?" : "&");
                         sb.Append(name).Append("=").Append(Uri.EscapeDataString(value.ToString()));
                     }
@@ -365,34 +348,6 @@ namespace hammock2
                 return url;
             }
 
-            //private string BuildUrl(InvokeMemberBinder binder, bool isLast = false)
-            //{
-            //    var segments = new List<string>();
-            //    if (_http._node != null)
-            //    {
-            //        segments.Add(_http._node.Separator);
-            //        segments.Add(_http._node.Name);
-            //    }
-            //    WalkSegments(segments, _http._node);
-
-            //    //if(!isLast)
-            //    //{
-            //    //    var last = binder.Name.ToLower();
-            //    //    segments.Add(last.Equals("json") ? "." : "/");
-            //    //    segments.Add(last);    
-            //    //}
-
-            //    var sb = new StringBuilder();
-            //    sb.Append(_http.Endpoint);
-            //    foreach (var segment in segments)
-            //    {
-            //        sb.Append(segment);
-            //    }
-            //    var url = sb.ToString();
-            //    return url;
-            //}
-
-
             private static void WalkSegments(ICollection<string> segments, UrlSegment node)
             {
                 if (node._inner == null)
@@ -422,8 +377,8 @@ namespace hammock2
         {
             return http =>
             {
-                var authorization = Convert.ToBase64String(Encoding.UTF8.GetBytes(username + ":" + password));
-                http.Headers.Add("Authorization", "Basic " + authorization);
+                var authorization = Convert.ToBase64String(Encoding.UTF8.GetBytes(string.Format("{0}:{1}", username, password)));
+                http.Headers.Add("Authorization", string.Format("Basic {0}", authorization));
             };
         }
         public static Action<Http> Ntlm()

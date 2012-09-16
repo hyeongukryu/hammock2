@@ -37,6 +37,7 @@ namespace hammock2.Tests
             Assert.IsNotNull(concrete);
             Assert.AreEqual("Spot", concrete.Name);
         }
+
         public class Dog
         {
             public string Name { get; set; }

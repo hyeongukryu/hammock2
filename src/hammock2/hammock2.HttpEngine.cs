@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Specialized;
+using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 
@@ -29,13 +31,52 @@ namespace hammock2
             ClientCertificateOptions = ClientCertificateOption.Automatic
         };
 
+        private HttpClient _client;
+
         public dynamic Request(string url, string method, NameValueCollection headers, dynamic body, bool trace)
         {
-            var request = new HttpRequestMessage();
+            var request = BuildRequest(url, method, headers, body);
+            if(trace) TraceRequest(request);
+            var reply = BuildResponse(request, url, method);
+            if(trace) TraceResponse(reply.Response);
+            return reply;
+        }
+
+        private static HttpRequestMessage BuildRequest(string url, string method, NameValueCollection headers, dynamic body)
+        {
+            var request = new HttpRequestMessage { RequestUri = new Uri(url) };
             foreach (var name in headers.AllKeys)
             {
                 var value = headers[name];
                 request.Headers.Add(name, value);
+            }
+            if(string.IsNullOrEmpty(request.Headers.UserAgent.ToString()))
+            {
+                request.Headers.Add("User-Agent", "hammock2");
+            }
+            switch (method.Trim().ToUpperInvariant())
+            {
+                case "GET":
+                    request.Method = HttpMethod.Get;
+                    break;
+                case "POST":
+                    request.Method = HttpMethod.Post;
+                    break;
+                case "PUT":
+                    request.Method = HttpMethod.Put;
+                    break;
+                case "DELETE":
+                    request.Method = HttpMethod.Delete;
+                    break;
+                case "HEAD":
+                    request.Method = HttpMethod.Head;
+                    break;
+                case "OPTIONS":
+                    request.Method = HttpMethod.Options;
+                    break;
+                case "TRACE":
+                    request.Method = HttpMethod.Trace;
+                    break;
             }
             HttpContent content = null;
             if (body != null)
@@ -43,20 +84,15 @@ namespace hammock2
                 content = new StringContent(HttpBody.Serialize(body));
             }
             request.Content = content;
-            return BuildResponse(request, url, method);
+            return request;
         }
 
         public dynamic BuildResponse(HttpRequestMessage request, string url, string method)
         {
-            var client = ClientFactory();
-            foreach(var header in request.Headers)
-            {
-                client.DefaultRequestHeaders.Add(header.Key, header.Value);
-            }
-            var requestMethod = method.Trim().ToUpperInvariant();
-            var response = GetHttpResponse(client, url, request.Content, requestMethod);
+            _client = _client ?? ClientFactory();
+            var response = _client.SendAsync(request).Result;
             var bodyString = response.Content != null ? response.Content.ReadAsStringAsync().Result : null;
-            
+
             // Content negotiation goes here...
             HttpBody body = bodyString != null ? HttpBody.Deserialize(bodyString) : null;
             return new HttpReply
@@ -66,27 +102,62 @@ namespace hammock2
             };
         }
 
-        private static HttpResponseMessage GetHttpResponse(HttpClient client, string url, HttpContent content, string requestMethod)
+        private static void TraceRequest(HttpRequestMessage request)
         {
-            HttpResponseMessage response;
-            switch (requestMethod)
+            TraceRequestImpl(request);
+        }
+        private static void TraceResponse(HttpResponseMessage response)
+        {
+            TraceResponseImpl(response);
+        }
+        [Conditional("TRACE")]
+        private static void TraceRequestImpl(HttpRequestMessage request)
+        {
+            Trace.WriteLine(string.Concat("--REQUEST: ", request.RequestUri.Scheme, "://", request.RequestUri.Host));
+            var pathAndQuery = string.Concat(request.RequestUri.AbsolutePath, string.IsNullOrEmpty(request.RequestUri.Query) ? "" : string.Concat(request.RequestUri.Query));
+            Trace.WriteLine(string.Concat(request.Method, " ", pathAndQuery, " HTTP/", request.Version));
+            foreach (var header in request.Headers)
             {
-                case "GET":
-                    response = client.GetAsync(url).Result;
-                    break;
-                case "PUT":
-                    response = client.PutAsync(url, content).Result;
-                    break;
-                case "DELETE":
-                    response = client.DeleteAsync(url).Result;
-                    break;
-                case "POST":
-                    response = client.PostAsync(url, content).Result;
-                    break;
-                default:
-                    throw new NotSupportedException(requestMethod);
+                Trace.Write(header.Key);
+                Trace.Write(": ");
+                var count = header.Value.Count();
+                var i = 0;
+                foreach (var value in header.Value)
+                {
+                    Trace.Write(value);
+                    i++;
+                    Trace.WriteIf(count < i, ",");
+                }
+                Trace.WriteLine("");
             }
-            return response;
+            if (request.Content != null)
+            {
+                Trace.WriteLine(request.Content.ReadAsStringAsync().Result);
+            }
+        }
+        [Conditional("TRACE")]
+        private static void TraceResponseImpl(HttpResponseMessage response)
+        {
+            Trace.WriteLine(String.Concat("\r\n--RESPONSE:", " ", response.RequestMessage.RequestUri));
+            Trace.WriteLine(String.Concat("HTTP/", response.RequestMessage.Version, " ", (int)response.StatusCode, " ", response.ReasonPhrase));
+            foreach (var header in response.Headers)
+            {
+                Trace.Write(header.Key);
+                Trace.Write(": ");
+                var count = header.Value.Count();
+                var i = 0;
+                foreach (var value in header.Value)
+                {
+                    Trace.Write(value);
+                    i++;
+                    Trace.WriteIf(count < i, ",");
+                }
+                Trace.WriteLine("");
+            }
+            if (response.Content != null)
+            {
+                Trace.WriteLine(response.Content.ReadAsStringAsync().Result);
+            }
         }
     }
 }

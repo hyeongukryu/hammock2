@@ -1,6 +1,9 @@
 hammock2
 ========
-A single .cs file for making munchy munchy API. Fully dynamic, so no "client library" required.
+"_REST, easy&trade;"
+
+hammock2 is a single .cs file for making munchy munchy API. Fully dynamic, so no "client library" required.
+_(It's Dapper for HTTP)_
 
 _LOL jk there's dependencies_
 ```
@@ -81,6 +84,14 @@ public class StripeCustomer
 }
 ```
 
+Tracing requests and responses:
+
+```csharp
+// Uses stock .NET trace writer
+var api = new Http("https://awe.sm"_;
+api.Trace = true;
+```
+
 Authentication
 --------------
 *Use the `HttpAuth` helper*
@@ -101,8 +112,6 @@ _stripe.Auth = auth;
 ```
 
 TODO:
-- tracing
-- deserialize body in single call
 - match method prefix to web method
 - content negotiation / formatters
 - async/await
