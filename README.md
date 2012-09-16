@@ -6,7 +6,7 @@ _LOL jk there's dependencies_
 ```
 	PM> Install-Package Microsoft.Net.Http	# Or provide your own implementation of IHttpEngine
 	PM> Install-Package ServiceStack.Text	# Or provide your own implementation of IMediaConverter
-	PM> Install-Package AsyncBridge
+	PM> Install-Package AsyncBridge         # Only required if your project is .NET 4.0, not .NET 4.5
 ```
 
 Usage
