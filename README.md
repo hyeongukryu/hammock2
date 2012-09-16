@@ -1,14 +1,15 @@
 hammock2
 ========
-"_REST, easy&trade;"
+_REST, easy&trade;_
 
 hammock2 is a single .cs file for making munchy munchy API. Fully dynamic, so no "client library" required.
-_(It's Dapper for HTTP)_
+
+It's Dapper for HTTP.
 
 _LOL jk there's dependencies_
 ```
 	PM> Install-Package Microsoft.Net.Http	# Or provide your own implementation of IHttpEngine
-	PM> Install-Package ServiceStack.Text	# Or provide your own implementation of IJsonConverter
+	PM> Install-Package ServiceStack.Text	# Or provide your own implementation of IMediaConverter
 	PM> Install-Package AsyncBridge
 ```
 
@@ -37,11 +38,11 @@ these interfaces to provide your own serializer implementation:
 ```csharp
 public interface IMediaConverter
 {
-    string DynamicToString(dynamic thing);
+    string DynamicToString(dynamic instance);
     IDictionary<string, object> StringToHash(string json);
     string HashToString(IDictionary<string, object> hash);
-    T DynamicTo<T>(dynamic thing);
-    T StringTo<T>(string thing);
+    T DynamicTo<T>(dynamic instance);
+    T StringTo<T>(string instance);
 }
 
 public interface IHttpEngine
@@ -88,20 +89,20 @@ Tracing requests and responses:
 
 ```csharp
 // Uses stock .NET trace writer
-var api = new Http("https://awe.sm"_;
+var api = new Http("https://awe.sm");
 api.Trace = true;
 ```
 
 Authentication
 --------------
-*Use the `HttpAuth` helper*
+*Use the `HttpAuth` helper:*
 ```csharp
 _stripe = new Http("https://api.stripe.com/v1/");
 _stripeKey = ConfigurationManager.AppSettings["StripeTestKey"];
 _stripe.Auth = HttpAuth.Basic(_stripeKey);
 ```
 
-*Pass in your own custom pre-request code*
+*Pass in your own custom pre-request code:*
 ```csharp
 Action<Http> auth = http =>
 {
@@ -111,7 +112,8 @@ Action<Http> auth = http =>
 _stripe.Auth = auth;
 ```
 
-TODO:
+TODO
+----
 - match method prefix to web method
 - content negotiation / formatters
 - async/await
