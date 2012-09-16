@@ -1,10 +1,6 @@
-hammock2
-========
-_REST, easy&trade;_
+![hammock2](https://github.com/danielcrenna/hammock2/raw/master/logo.png) 
 
 hammock2 is a single .cs file for making munchy munchy API. Fully dynamic, so no "client library" required.
-
-It's Dapper for HTTP.
 
 _LOL jk there's dependencies_
 ```
