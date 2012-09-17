@@ -1,3 +1,27 @@
+#region License
+// hammock2
+// --------------------------------------
+// Copyright (c) 2012 Conatus Creative Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE. 
+#endregion
+
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -211,9 +235,10 @@ namespace hammock2
         public override bool TryInvoke(InvokeBinder binder, object[] args, out object result)
         {
             var argTypes = args.Select(arg => arg.GetType()).ToArray();
-            if(argTypes.Length == 0)
+            if(argTypes.Length == 0 || argTypes.Length == 1 && binder.CallInfo.ArgumentNames[0].StartsWith(PrivateParameter))
             {
-                result = Engine.Request(Endpoint, "GET", _headers, null, Trace);
+                var method = GetMethodOverride("GET", args, binder.CallInfo.ArgumentNames);
+                result = Execute(Endpoint, "", method, null);
                 return true;
             }
             var ctor = typeof(Http).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null, argTypes, null);
@@ -235,10 +260,25 @@ namespace hammock2
             var response = Engine.Request(string.Concat(url, queryString), method, _headers, body, Trace);
             return response;
         }
+
+        private const string PrivateParameter = "__";
+        private static string GetMethodOverride(string method, IList<object> args, IList<string> names)
+        {
+            foreach (var name in names.Where(n => n.StartsWith(PrivateParameter)))
+            {
+                var parameter = name.Remove(0, 2);
+                if (!parameter.Equals("method", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                var index = names.IndexOf(name);
+                method = args[index].ToString();
+            }
+            return method;
+        }
         
         public class UrlSegment : DynamicObject
         {
-            private const string PrivateParameter = "__";
             private UrlSegment _inner;
             private readonly Http _http;
             private string Name { get; set; }
@@ -282,21 +322,6 @@ namespace hammock2
                 var queryString = BuildQueryString(names, args);
                 result = _http.Execute(url, queryString, method, body);
                 return true;
-            }
-
-            private static string GetMethodOverride(string method, IList<object> args, IList<string> names)
-            {
-                foreach (var name in names.Where(n => n.StartsWith(PrivateParameter)))
-                {
-                    var parameter = name.Remove(0, 2);
-                    if (!parameter.Equals("method"))
-                    {
-                        continue;
-                    }
-                    var index = names.IndexOf(name);
-                    method = args[index].ToString();
-                }
-                return method;
             }
 
             private static string BuildQueryString(IList<string> names, IList<object> values)
