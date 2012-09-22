@@ -1,16 +1,12 @@
-hammock2
-========
-_REST, easy&trade;_
+![hammock2](https://github.com/danielcrenna/hammock2/raw/master/logo.png) 
 
 hammock2 is a single .cs file for making munchy munchy API. Fully dynamic, so no "client library" required.
-
-It's Dapper for HTTP.
 
 _LOL jk there's dependencies_
 ```
 	PM> Install-Package Microsoft.Net.Http	# Or provide your own implementation of IHttpEngine
 	PM> Install-Package ServiceStack.Text	# Or provide your own implementation of IMediaConverter
-	PM> Install-Package AsyncBridge
+	PM> Install-Package AsyncBridge         # Only required if your project is .NET 4.0, not .NET 4.5
 ```
 
 Usage
@@ -56,6 +52,12 @@ _Concrete addiction_
 If you really need concrete classes, you can do that too, by deserializing the whole body, or a portion of it:
 
 ```csharp
+public class StripeCustomer
+{
+    public string Id { get; set; }
+	// ...
+}
+
 public class Stripe
 {
     private readonly dynamic _stripe;
@@ -76,12 +78,6 @@ public class Stripe
         var customers = body.Deserialize<IEnumerable<StripeCustomer>>(body.Data);
         return customers;
     }
-}
-
-public class StripeCustomer
-{
-    public string Id { get; set; }
-	// ...
 }
 ```
 

@@ -21,6 +21,7 @@ namespace hammock2
         }
         public IDictionary<string, object> StringToHash(string json)
         {
+            if (string.IsNullOrWhiteSpace(json)) return new Dictionary<string, object>();
             var hash = JsonSerializer.DeserializeFromString<JsonObject>(json);
             var result = hash.ToDictionary<KeyValuePair<string, string>, string, object>(entry => entry.Key, entry => entry.Value);
             return result;
