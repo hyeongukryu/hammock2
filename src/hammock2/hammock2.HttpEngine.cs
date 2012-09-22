@@ -78,6 +78,8 @@ namespace hammock2
                     request.Method = HttpMethod.Trace;
                     break;
             }
+
+            // Content negotiation goes here...
             HttpContent content = null;
             if (body != null)
             {
@@ -91,9 +93,9 @@ namespace hammock2
         {
             _client = _client ?? ClientFactory();
             var response = _client.SendAsync(request).Result;
-            var bodyString = response.Content != null ? response.Content.ReadAsStringAsync().Result : null;
-
+            
             // Content negotiation goes here...
+            var bodyString = response.Content != null ? response.Content.ReadAsStringAsync().Result : null;
             HttpBody body = bodyString != null ? HttpBody.Deserialize(bodyString) : null;
             return new HttpReply
             {

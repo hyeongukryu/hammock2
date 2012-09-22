@@ -41,8 +41,8 @@ namespace hammock2.Tests
         [Test]
         public void When_resource_not_found_hashes_are_safely_traversed()
         {
-            var http = DynamicHttp();
-            var reply = http.This.Is.Totally.Not.A.Url();
+            var query = DynamicHttp();
+            var reply = query.This.Is.Totally.Not.A.Url();
             Assert.AreEqual(HttpStatusCode.NotFound, reply.Response.StatusCode);
             var body = reply.Body;
             var nonsense = body.Definitely.No.Property.Structure.Such.As.This;
@@ -50,11 +50,32 @@ namespace hammock2.Tests
         }
 
         [Test]
-        public void Can_get_an_entity_from_a_url()
+        public void Can_get_an_entity_from_a_url_on_first_node()
         {
-            // users/show.json?screen_name=danielcrenna
-            var twitter = DynamicHttp();
-            var reply = twitter.Users.Show.Dot.Json(screen_name: "danielcrenna");
+            var query = DynamicHttp();
+            var reply = query.One(screen_name: "danielcrenna");
+            var user = reply.Body;
+            Assert.IsNotNull(user);
+            Assert.AreEqual("danielcrenna", user.ScreenName);
+            Console.WriteLine(user.ScreenName + ":" + user.Status.Text);
+        }
+
+        [Test]
+        public void Can_get_an_entity_from_a_url_on_second_node()
+        {
+            var query = DynamicHttp();
+            var reply = query.One.Two(screen_name: "danielcrenna");
+            var user = reply.Body;
+            Assert.IsNotNull(user);
+            Assert.AreEqual("danielcrenna", user.ScreenName);
+            Console.WriteLine(user.ScreenName + ":" + user.Status.Text);
+        }
+
+        [Test]
+        public void Can_get_an_entity_from_a_url_on_dot_node()
+        {
+            var query = DynamicHttp();
+            var reply = query.One.Two.Three.Dot.Four(screen_name: "danielcrenna");
             var user = reply.Body;
             Assert.IsNotNull(user);
             Assert.AreEqual("danielcrenna", user.ScreenName);
@@ -64,6 +85,7 @@ namespace hammock2.Tests
         private static dynamic DynamicHttp()
         {
             dynamic http = new Http("http://localhost:8787");
+            http.Trace = true;
             return http;
         }
     }

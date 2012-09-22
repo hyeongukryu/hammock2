@@ -201,13 +201,15 @@ namespace hammock2
             return true;
         }
 
+        // Single segment with parameters
         public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
         {
             var name = binder.Name.ToLowerInvariant();
-            var node = _node ?? (_node = new UrlSegment(this, name));
+            var node = new UrlSegment(this, name);
             return node.TryInvokeMember(binder, args, out result);
         }
         
+        // Single segment without parameters
         public override bool TryInvoke(InvokeBinder binder, object[] args, out object result)
         {
             var argTypes = args.Select(arg => arg.GetType()).ToArray();
@@ -265,13 +267,20 @@ namespace hammock2
 
             public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
             {
+                // Resolve the node if not already
+                if(_http._node != null)
+                {
+                    var name = binder.Name.ToLower();
+                    _inner = new UrlSegment(_http, name);    
+                }
+                
                 // A single nameless parameter means a POST entity
                 dynamic body = null;
                 if (binder.CallInfo.ArgumentCount == 1 && binder.CallInfo.ArgumentNames.Count == 0)
                 {
                     body = HttpBody.Serialize(args[0]);
                 }
-                var url = BuildUrl(binder);
+                var url = BuildUrl();
                 var method = "GET";
                 if (body != null)
                 {
@@ -321,23 +330,25 @@ namespace hammock2
                 return sb.ToString();
             }
 
-            private string BuildUrl(InvokeMemberBinder binder)
+            private string BuildUrl()
             {
+                var count = 0;
                 var segments = new List<string>();
                 if (_http._node != null)
                 {
                     segments.Add(_http._node.Separator);
                     segments.Add(_http._node.Name);
+                    count++;
+
+                    var skipSeparator = false;
+                    WalkSegments(segments, _http._node, ref count, ref skipSeparator);
                 }
-                WalkSegments(segments, _http._node);
-                
-                // Don't double count if we're invoking on the first segment
-                if(segments.Count > 2)
+                else
                 {
-                    var last = binder.Name.ToLower();
-                    segments.Add(last);     
+                    segments.Add(Separator);
+                    segments.Add(Name);
                 }
-                
+
                 var sb = new StringBuilder();
                 sb.Append(_http.Endpoint);
                 foreach (var segment in segments)
@@ -348,15 +359,20 @@ namespace hammock2
                 return url;
             }
 
-            private static void WalkSegments(ICollection<string> segments, UrlSegment node)
+            private static void WalkSegments(ICollection<string> segments, UrlSegment node, ref int count, ref bool skipSeparator)
             {
                 if (node._inner == null)
                 {
                     return;
                 }
-                segments.Add(node._inner.Separator);
+                if(!skipSeparator)
+                {
+                    segments.Add(node._inner.Separator);
+                }
+                skipSeparator = node._inner.Separator.Equals(".");
                 segments.Add(node._inner.Name);
-                WalkSegments(segments, node._inner);
+                count++;
+                WalkSegments(segments, node._inner, ref count, ref skipSeparator);
             }
         }
     }

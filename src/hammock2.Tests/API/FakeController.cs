@@ -9,8 +9,10 @@ namespace hammock2.Tests.API
     {
         public static void RegisterRoutes(HttpConfiguration config)
         {
-            config.Routes.MapHttpRoute(name: "GetWithNoParameters", routeTemplate: "", defaults: new { Controller = "Fake", Action = "GetWithNoParameters" });
-            config.Routes.MapHttpRoute(name: "GetEntity_TwitterUsersShow", routeTemplate: "users/show.json", defaults: new { Controller = "Fake", Action = "GetEntity", filename = "twitter_users_show.json" });
+            config.Routes.MapHttpRoute(name: "Request_parameterless_get", routeTemplate: "", defaults: new { Controller = "Fake", Action = "GetWithNoParameters" });
+            config.Routes.MapHttpRoute(name: "Can_get_an_entity_from_a_url_on_first_node", routeTemplate: "one", defaults: new { Controller = "Fake", Action = "GetEntity", filename = "twitter_users_show.json" });
+            config.Routes.MapHttpRoute(name: "Can_get_an_entity_from_a_url_on_second_node", routeTemplate: "one/two", defaults: new { Controller = "Fake", Action = "GetEntity", filename = "twitter_users_show.json" });
+            config.Routes.MapHttpRoute(name: "Can_get_an_entity_from_a_url_on_dot_node", routeTemplate: "one/two/three.four", defaults: new { Controller = "Fake", Action = "GetEntity", filename = "twitter_users_show.json" });
         }
 
         public HttpResponseMessage GetWithNoParameters()
