@@ -45,10 +45,10 @@ namespace hammock2
     public partial class HttpBody : DynamicObject
     {
         private readonly IDictionary<string, object> _hash = new Dictionary<string, object>();
-        
+
         protected internal static readonly Null Null = new Null();
         protected internal static readonly IMediaConverter Converter;
-        
+
         public static string Serialize(dynamic instance)
         {
             return Converter.DynamicToString(instance);
@@ -195,7 +195,7 @@ namespace hammock2
             var name = binder.Name.ToLowerInvariant();
             if (name.Equals("auth"))
             {
-                if(value is Action<Http>)
+                if (value is Action<Http>)
                 {
                     _auth = value as Action<Http>;
                 }
@@ -232,12 +232,12 @@ namespace hammock2
             var node = new UrlSegment(this, name);
             return node.TryInvokeMember(binder, args, out result);
         }
-        
+
         // Single segment without parameters
         public override bool TryInvoke(InvokeBinder binder, object[] args, out object result)
         {
             var argTypes = args.Select(arg => arg.GetType()).ToArray();
-            if(argTypes.Length == 0 || argTypes.Length == 1 && binder.CallInfo.ArgumentNames[0].StartsWith(PrivateParameter))
+            if (argTypes.Length == 0 || argTypes.Length == 1 && binder.CallInfo.ArgumentNames[0].StartsWith(PrivateParameter))
             {
                 var method = GetMethodOverride("GET", args, binder.CallInfo.ArgumentNames);
                 result = Execute(Endpoint, "", method, null);
@@ -278,7 +278,7 @@ namespace hammock2
             }
             return method;
         }
-        
+
         public class UrlSegment : DynamicObject
         {
             private UrlSegment _inner;
@@ -308,17 +308,17 @@ namespace hammock2
             public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
             {
                 // Resolve the node if not already
-                if(_http._node != null)
+                if (_http._node != null)
                 {
                     var name = binder.Name.ToLower();
-                    _inner = new UrlSegment(_http, name);    
+                    _inner = new UrlSegment(_http, name);
                 }
-                
+
                 // A single nameless parameter means a POST entity
                 dynamic body = null;
                 if (binder.CallInfo.ArgumentCount == 1 && binder.CallInfo.ArgumentNames.Count == 0)
                 {
-                    body = HttpBody.Serialize(args[0]);
+                    body = args[0];
                 }
                 var url = BuildUrl();
                 var method = "GET";
@@ -390,7 +390,7 @@ namespace hammock2
                 {
                     return;
                 }
-                if(!skipSeparator)
+                if (!skipSeparator)
                 {
                     segments.Add(node._inner.Separator);
                 }
@@ -407,7 +407,7 @@ namespace hammock2
         public HttpResponseMessage Response { get; set; }
         public HttpBody Body { get; set; }
     }
-    
+
     public class HttpAuth
     {
         public static Action<Http> Basic(string token)

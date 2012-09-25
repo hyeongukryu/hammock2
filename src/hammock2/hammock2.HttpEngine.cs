@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Specialized;
 using System.Diagnostics;
+using System.Dynamic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Formatting;
 
 namespace hammock2
 {
@@ -36,9 +38,9 @@ namespace hammock2
         public dynamic Request(string url, string method, NameValueCollection headers, dynamic body, bool trace)
         {
             var request = BuildRequest(url, method, headers, body);
-            if(trace) TraceRequest(request);
+            if (trace) TraceRequest(request);
             var reply = BuildResponse(request, url, method);
-            if(trace) TraceResponse(reply.Response);
+            if (trace) TraceResponse(reply.Response);
             return reply;
         }
 
@@ -50,7 +52,7 @@ namespace hammock2
                 var value = headers[name];
                 request.Headers.Add(name, value);
             }
-            if(string.IsNullOrEmpty(request.Headers.UserAgent.ToString()))
+            if (string.IsNullOrEmpty(request.Headers.UserAgent.ToString()))
             {
                 request.Headers.Add("User-Agent", "hammock2");
             }
@@ -83,7 +85,7 @@ namespace hammock2
             HttpContent content = null;
             if (body != null)
             {
-                content = new StringContent(HttpBody.Serialize(body));
+                content = new ObjectContent(body.GetType(), body, new JsonMediaTypeFormatter());
             }
             request.Content = content;
             return request;
@@ -93,7 +95,7 @@ namespace hammock2
         {
             _client = _client ?? ClientFactory();
             var response = _client.SendAsync(request).Result;
-            
+
             // Content negotiation goes here...
             var bodyString = response.Content != null ? response.Content.ReadAsStringAsync().Result : null;
             HttpBody body = bodyString != null ? HttpBody.Deserialize(bodyString) : null;
